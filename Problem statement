@@ -1,0 +1,310 @@
+=Problem statement 1:
+Product Requirements Document
+1. Overview
+This product helps users scan and analyze container images for vulnerabilities, prioritize remediation based on severity, and manage thousands of images efficiently.
+
+2. Goals
+Provide a comprehensive view of container image vulnerabilities.
+
+Enable users to filter and prioritize images by severity (e.g., Critical, High).
+
+Ensure the system can handle large-scale image repositories.
+
+Provide actionable insights to facilitate quick remediation.
+
+3. User Personas
+Security Engineer – Investigates and remediates vulnerabilities.
+
+DevOps Engineer – Integrates image scanning into CI/CD pipelines.
+
+Engineering Manager – Monitors security posture and compliance.
+
+4. Key Features
+4.1 Image Vulnerability Dashboard
+Summary of scanned images
+
+Breakdown of vulnerabilities by severity
+
+Trends over time (vuln counts, fix progress)
+
+4.2 Image Explorer / List View
+Table of all scanned images
+
+Sort/filter by:
+
+Image name, tag
+
+Last scanned time
+
+Number of vulnerabilities
+
+Severity (Critical, High, Medium, Low)
+
+Fix availability
+
+4.3 Image Details Page
+Metadata (name, tag, digest, last scan)
+
+Vulnerability summary
+
+Detailed vulnerability list:
+
+CVE ID
+
+Severity
+
+Package name & version
+
+Fixed version (if available)
+
+Links to advisories
+
+4.4 Fix Recommendations
+Prioritized list of images needing attention
+
+Grouped by fixability and severity
+
+Suggestions for re-tagging, rebuilding with fixed base images
+
+4.5 Search and Filtering
+Global search (by image name, CVE ID, etc.)
+
+Filters for project, severity, fixable, time range
+
+4.6 Integrations (Optional MVP Feature)
+CI/CD scanners (e.g., GitHub Actions, GitLab CI, Jenkins)
+
+Notifications (Slack, Email)
+
+Low-Fidelity Wireframes
+Here’s a description of what each wireframe might look like:
+
+1. Dashboard
+Top bar: Search bar + filters (severity, fixable)
+
+Main panel:
+
+Total images scanned
+
+Total vulnerabilities (by severity)
+
+Top 5 vulnerable images
+
+Graph: Vulnerability trends
+
+2. Image List View
+markdown
+---------------------------------------------------------
+| Image Name | Tag | Last Scanned | Critical | Fixable |
+---------------------------------------------------------
+| app-backend| v1  | Apr 15       | 5        | Yes     |
+| nginx      | 1.19| Apr 15       | 2        | No      |
+| redis      | 6.2 | Apr 16       | 0        | -       |
+---------------------------------------------------------
+3. Image Details View
+markdown
+Image: app-backend:v1
+Last Scanned: Apr 15
+
+Vulnerability Summary:
+Critical: 5 | High: 10 | Medium: 15 | Low: 5
+
+Vulnerabilities Table:
+-------------------------------------------------------------
+| CVE ID     | Severity | Package | Version | Fixed Version |
+-------------------------------------------------------------
+| CVE-2023...| Critical | libssl  | 1.1.1    | 1.1.1l       |
+| CVE-2022...| High     | curl    | 7.68.0   | 7.70.0       |
+-------------------------------------------------------------
+(Bonus) Development Action Items
+Back-End
+
+Implement image scan ingestion pipeline.
+
+Build database schema for images, scan results, vulnerabilities.
+
+Develop REST APIs for:
+
+Image list
+
+Vulnerability details
+
+Filters & search
+
+Front-End
+
+Design reusable UI components (tables, filters, graphs).
+
+Implement dashboard view with aggregated metrics.
+
+Build image details page with nested vulnerability list.
+
+DevOps
+
+Integrate scanning tool (e.g., Trivy, Grype).
+
+Set up periodic scans for image repositories.
+
+Store scan reports in a structured database.
+
+Optional
+
+Add notification system for newly found critical vulnerabilities.
+
+Support user authentication and access controls.
+
+=Problem statement 2:
+Step 1: Install a Local Kubernetes Cluster
+Choose one of the following:
+
+Minikube (recommended for simplicity):
+
+bash
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+minikube start
+Kind:
+
+bash
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+kind create cluster
+K3s:
+
+bash
+curl -sfL https://get.k3s.io | sh -
+Step 2: Install Kubescape
+
+bash
+curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+Verify:
+
+bash
+kubescape version
+Step 3: Run Kubescape Scan and Output JSON
+
+bash
+kubescape scan --format json --output results.json
+Alternatively, specify specific frameworks or controls:
+
+bash
+kubescape scan framework nsa --format json --output results.json
+This command generates a file called results.json with the full findings.
+
+=Problem statement 3:
+Step 1: Create a GoLang App + Dockerize + Push to DockerHub
+🔹 1. GoLang App (main.go)
+Create a simple Go web app that shows current date and time:
+
+go
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+)
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Fprintf(w, "Current Date and Time: %s", currentTime)
+}
+
+func main() {
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
+}
+🔹 2. Dockerfile
+Create a Dockerfile:
+
+Dockerfile
+# Use Go base image
+FROM golang:1.21 as builder
+
+WORKDIR /app
+COPY . .
+RUN go build -o datetime-app
+
+# Use a smaller final image
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/datetime-app .
+
+EXPOSE 8080
+CMD ["./datetime-app"]
+🔹 3. Build & Push to DockerHub
+bash
+docker build -t <your-dockerhub-username>/datetime-app .
+docker login
+docker push <your-dockerhub-username>/datetime-app
+Example:
+
+bash
+docker build -t johnsmith/datetime-app .
+docker push johnsmith/datetime-app
+✅ Step 2: Deploy to Kubernetes (2 Replicas) - Declarative YAML
+📄 deployment.yaml
+yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datetime-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: datetime
+  template:
+    metadata:
+      labels:
+        app: datetime
+    spec:
+      containers:
+      - name: datetime
+        image: <your-dockerhub-username>/datetime-app
+        ports:
+        - containerPort: 8080
+📄 service.yaml
+yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: datetime-service
+spec:
+  selector:
+    app: datetime
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+⏩ Deploy to Kubernetes
+bash
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+✅ Step 3: Expose to the Internet (WAN)
+You can use one of the following platforms:
+
+🔹 Option A: Play with Kubernetes
+Use the browser-based playground
+
+Paste your YAMLs
+
+Use kubectl port-forward if LoadBalancer is not supported
+
+🔹 Option B: GCP / AWS / Azure (via Qwiklabs)
+If you use GCP:
+
+Create a Kubernetes Engine cluster
+
+Deploy your app
+
+GCP automatically provisions an external LoadBalancer IP
+
+Access via that IP on port 80
+
+🔄 Optional: Clean Up
+bash
+kubectl delete -f deployment.yaml
+kubectl delete -f service.yaml
